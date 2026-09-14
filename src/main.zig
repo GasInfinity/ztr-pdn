@@ -62,7 +62,7 @@ pub fn main() !void {
 
         switch (idx) {
             0 => switch (try srv.sendReceiveNotification()) {
-                .must_terminate => stop = false,
+                .must_terminate => stop = true,
                 else => {},
             },
             ports_begin...ports_end => {
