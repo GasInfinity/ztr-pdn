@@ -1,0 +1,19 @@
+.{
+    .name = .ztr_pdn,
+    .version = "0.0.0",
+    .fingerprint = 0xaad1393bd5b902fa, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .zitrus = .{
+            .url = "git+https://codeberg.org/GasInfinity/zitrus.git#62104977f2eafdd722e8f0a1fe6d52c2fc791f9e",
+            .hash = "zitrus-0.0.0-Ewix9ENkHgBkVmo6kMCxGkvuWxZJ8-yk0XYxA5OmZpC2",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
