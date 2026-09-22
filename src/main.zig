@@ -29,7 +29,7 @@ pub fn main() void {
     defer handles[0].close();
 
     for (service_names) |name| ports.appendAssumeCapacity(assertResult(srv.sendWithResult(.RegisterService, .init(name, 1), .{})).wrapped);
-    defer for (service_names) |name| assertResult(srv.sendWithResult(.UnregisterService, .init(name), .{}));
+    defer for (service_names) |name| assertResult(srv.sendWithResult(.UnregisterService, .embedded(name), .{}));
 
     var stop = false;
     var remote_reply: Session.Server = .none;
@@ -84,43 +84,40 @@ pub fn main() void {
 
                 switch (port_idx) {
                     0 => if (ipc.readRequestId(pdn.Sleep.command.Id)) |id| switch (id) {
-                        .get_wake_status => ipc.writeResponse(pdn.Sleep.command.GetWakeStatus, .of(
+                        .get_wake_status => if (ipc.readRequest(pdn.Sleep.command.GetWakeStatus)) |_| ipc.writeResponse(pdn.Sleep.command.GetWakeStatus, .of(
                             .success,
                             .{
                                 .enabled = pdn_registers.sleep.wake_enable,
                                 .reason = pdn_registers.sleep.wake_reason,
                             },
                         )),
-                        .configure_wake => ipc.writeResponse(pdn.Sleep.command.ConfigureWake, blk: {
-                            const req = ipc.readRequest(pdn.Sleep.command.ConfigureWake) catch break :blk .of(.os_invalid_ipc_parameters, {});
+                        .configure_wake => if (ipc.readRequest(pdn.Sleep.command.ConfigureWake)) |req| ipc.writeResponse(pdn.Sleep.command.ConfigureWake, blk: {
                             pdn_registers.sleep.wake_reason = @bitCast(req.enable.int() & req.acknowledge.int());
                             pdn_registers.sleep.wake_enable = req.enable;
                             pdn_registers.sleep.wake_reason = @bitCast(~req.enable.int() & req.acknowledge.int());
                             break :blk .of(.success, {});
                         }),
-                        .acknowledge_wake => ipc.writeResponse(pdn.Sleep.command.AcknowledgeWake, blk: {
-                            const req = ipc.readRequest(pdn.Sleep.command.AcknowledgeWake) catch break :blk .of(.os_invalid_ipc_parameters, {});
+                        .acknowledge_wake => if (ipc.readRequest(pdn.Sleep.command.AcknowledgeWake)) |req| ipc.writeResponse(pdn.Sleep.command.AcknowledgeWake, .of(blk: {
                             pdn_registers.sleep.wake_reason = req.acknowledge;
-                            break :blk .of(.success, {});
-                        }),
+                            break :blk .success;
+                        }, {})),
                     },
                     1 => if (ipc.readRequestId(pdn.I2s.command.Id)) |id| switch (id) {
-                        .set_enabled_1 => ipc.writeResponse(pdn.I2s.command.SetEnabled1, blk: {
+                        .set_enabled_1 => if (ipc.readRequest(pdn.I2s.command.SetEnabled1)) |req| ipc.writeResponse(pdn.I2s.command.SetEnabled1, blk: {
                             var i2s = pdn_registers.clock.i2s;
-                            i2s.i2s1 = ipc.readRequest(pdn.I2s.command.SetEnabled1) catch break :blk .of(.os_invalid_ipc_parameters, {});
+                            i2s.i2s1 = req;
                             pdn_registers.clock.i2s = i2s;
                             break :blk .of(.success, {});
                         }),
-                        .set_enabled_2 => ipc.writeResponse(pdn.I2s.command.SetEnabled2, blk: {
+                        .set_enabled_2 => if (ipc.readRequest(pdn.I2s.command.SetEnabled2)) |req| ipc.writeResponse(pdn.I2s.command.SetEnabled2, blk: {
                             var i2s = pdn_registers.clock.i2s;
-                            i2s.i2s2 = ipc.readRequest(pdn.I2s.command.SetEnabled2) catch break :blk .of(.os_invalid_ipc_parameters, {});
+                            i2s.i2s2 = req;
                             pdn_registers.clock.i2s = i2s;
                             break :blk .of(.success, {});
                         }),
                     },
                     2 => if (ipc.readRequestId(pdn.Gpu.command.Id)) |id| switch (id) {
-                        .control => ipc.writeResponse(pdn.Gpu.command.Control, blk: {
-                            const req = ipc.readRequest(pdn.Gpu.command.Control) catch break :blk .of(.os_invalid_ipc_parameters, {});
+                        .control => if (ipc.readRequest(pdn.Gpu.command.Control)) |req| ipc.writeResponse(pdn.Gpu.command.Control, blk: {
                             if ((req.reset or req.reset_registers) and !req.enable) break :blk .of(.pdn_invalid_arg, {});
 
                             var gpu: hardware.pdn.Clock.Gpu = .{
@@ -156,8 +153,7 @@ pub fn main() void {
                         }),
                     },
                     3 => if (ipc.readRequestId(pdn.Dsp.command.Id)) |id| switch (id) {
-                        .control => ipc.writeResponse(pdn.Dsp.command.Control, blk: {
-                            const req = ipc.readRequest(pdn.Dsp.command.Control) catch break :blk .of(.os_invalid_ipc_parameters, {});
+                        .control => if (ipc.readRequest(pdn.Dsp.command.Control)) |req| ipc.writeResponse(pdn.Dsp.command.Control, blk: {
                             if (req.reset_registers and !req.enable) break :blk .of(.pdn_invalid_arg, {});
 
                             var dsp: hardware.pdn.Clock.Dsp = .{
@@ -177,14 +173,12 @@ pub fn main() void {
                         }),
                     },
                     4 => if (ipc.readRequestId(pdn.Camera.command.Id)) |id| switch (id) {
-                        .set_enabled => ipc.writeResponse(pdn.Camera.command.SetEnabled, blk: {
-                            const camera: hardware.pdn.Clock.Enable = .{
-                                .enable = ipc.readRequest(pdn.Camera.command.SetEnabled) catch break :blk .of(.os_invalid_ipc_parameters, {}),
-                            };
+                        .set_enabled => if (ipc.readRequest(pdn.Camera.command.SetEnabled)) |req| ipc.writeResponse(pdn.Camera.command.SetEnabled, blk: {
+                            const camera: hardware.pdn.Clock.Enable = .{ .enable = req };
                             pdn_registers.clock.camera = camera;
                             break :blk .of(.success, {});
                         }),
-                        .is_enabled => ipc.writeResponse(pdn.Camera.command.IsEnabled, .of(
+                        .is_enabled => if (ipc.readRequest(pdn.Camera.command.IsEnabled)) |_| ipc.writeResponse(pdn.Camera.command.IsEnabled, .of(
                             .success,
                             pdn_registers.clock.camera.enable,
                         )),
