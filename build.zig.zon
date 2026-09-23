@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .zitrus = .{
-            .url = "git+https://codeberg.org/GasInfinity/zitrus#dffa231e4b1729cbf0c6b46d2bf4dae0db4bea6f",
-            .hash = "zitrus-0.0.0-Ewix9Es6HwDcpITeE9MiaWJEinyQP7yh-XAw-nPoKEAD",
+            .url = "git+https://codeberg.org/GasInfinity/zitrus.git#44dcc6be4f3b6a91e4db73c99548cd667c39f782",
+            .hash = "zitrus-0.0.0-Ewix9LBhHwBpdO9TfpxM5OVER9FlyphlrL4TGXRFq93P",
         },
     },
     .paths = .{

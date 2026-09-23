@@ -22,7 +22,7 @@ pub fn main() void {
     var handles: [1 + service_names.len * 2]horizon.Synchronization = undefined;
     var ports: std.ArrayList(Port.Server) = .initBuffer(@ptrCast(handles[1..][0..service_names.len]));
     defer for (ports.items) |port| port.close();
-    var sessions: std.ArrayList(Session.Server) = .initBuffer(@ptrCast(handles[1 + service_names.len..][0..service_names.len]));
+    var sessions: std.ArrayList(Session.Server) = .initBuffer(@ptrCast(handles[1 + service_names.len ..][0..service_names.len]));
     defer for (sessions.items) |remote| remote.close();
 
     handles[0] = @bitCast(assertResult(srv.sendWithResult(.EnableNotification, {}, .{})));
@@ -41,16 +41,17 @@ pub fn main() void {
             ipc.packed_command.header = .none;
         }
 
-        const res = horizon.replyAndReceive(handles[0..1 + ports.items.len + sessions.items.len], remote_reply);
+        const res = horizon.replyAndReceive(handles[0 .. 1 + ports.items.len + sessions.items.len], remote_reply);
         const last_remote_reply_idx = remote_reply_idx;
         remote_reply, remote_reply_idx = .{ .none, null };
 
-        const idx: usize = if (res.value < 0) 
+        const idx: usize = if (res.value < 0)
             (if (last_remote_reply_idx) |idx| idx else {
                 assertCode(.failure);
                 unreachable;
             })
-        else @intCast(res.value);
+        else
+            @intCast(res.value);
 
         if (!res.code.isSuccess()) switch (res.code) {
             .os_session_closed_by_remote => {
@@ -69,7 +70,7 @@ pub fn main() void {
                 else => {},
             },
             ports_begin...ports_end => {
-                const port_idx = idx - ports_begin; 
+                const port_idx = idx - ports_begin;
                 const port = ports.items[port_idx];
 
                 sessions.appendAssumeCapacity(assertResult(horizon.acceptSession(port)));
@@ -79,45 +80,45 @@ pub fn main() void {
                 remote_reply_idx = idx;
                 const session_idx = idx - remotes_begin;
                 remote_reply = sessions.items[session_idx];
-                
+
                 const port_idx = session_port_mapping.items[session_idx];
 
                 switch (port_idx) {
-                    0 => if (ipc.readRequestId(pdn.Sleep.command.Id)) |id| switch (id) {
-                        .get_wake_status => if (ipc.readRequest(pdn.Sleep.command.GetWakeStatus)) |_| ipc.writeResponse(pdn.Sleep.command.GetWakeStatus, .of(
+                    0 => if (ipc.readRequestId(pdns.Sleep.command.Id)) |id| switch (id) {
+                        .get_wake_status => if (ipc.readRequest(pdns.Sleep.command.GetWakeStatus)) |_| ipc.writeResponse(pdns.Sleep.command.GetWakeStatus, .of(
                             .success,
                             .{
-                                .enabled = pdn_registers.sleep.wake_enable,
-                                .reason = pdn_registers.sleep.wake_reason,
+                                .enabled = pdn.sleep.wake_enable,
+                                .reason = pdn.sleep.wake_reason,
                             },
                         )),
-                        .configure_wake => if (ipc.readRequest(pdn.Sleep.command.ConfigureWake)) |req| ipc.writeResponse(pdn.Sleep.command.ConfigureWake, blk: {
-                            pdn_registers.sleep.wake_reason = @bitCast(req.enable.int() & req.acknowledge.int());
-                            pdn_registers.sleep.wake_enable = req.enable;
-                            pdn_registers.sleep.wake_reason = @bitCast(~req.enable.int() & req.acknowledge.int());
+                        .configure_wake => if (ipc.readRequest(pdns.Sleep.command.ConfigureWake)) |req| ipc.writeResponse(pdns.Sleep.command.ConfigureWake, blk: {
+                            pdn.sleep.wake_reason = @bitCast(req.enable.int() & req.acknowledge.int());
+                            pdn.sleep.wake_enable = req.enable;
+                            pdn.sleep.wake_reason = @bitCast(~req.enable.int() & req.acknowledge.int());
                             break :blk .of(.success, {});
                         }),
-                        .acknowledge_wake => if (ipc.readRequest(pdn.Sleep.command.AcknowledgeWake)) |req| ipc.writeResponse(pdn.Sleep.command.AcknowledgeWake, .of(blk: {
-                            pdn_registers.sleep.wake_reason = req.acknowledge;
+                        .acknowledge_wake => if (ipc.readRequest(pdns.Sleep.command.AcknowledgeWake)) |req| ipc.writeResponse(pdns.Sleep.command.AcknowledgeWake, .of(blk: {
+                            pdn.sleep.wake_reason = req.acknowledge;
                             break :blk .success;
                         }, {})),
                     },
-                    1 => if (ipc.readRequestId(pdn.I2s.command.Id)) |id| switch (id) {
-                        .set_enabled_1 => if (ipc.readRequest(pdn.I2s.command.SetEnabled1)) |req| ipc.writeResponse(pdn.I2s.command.SetEnabled1, blk: {
-                            var i2s = pdn_registers.clock.i2s;
+                    1 => if (ipc.readRequestId(pdns.I2s.command.Id)) |id| switch (id) {
+                        .set_enabled_1 => if (ipc.readRequest(pdns.I2s.command.SetEnabled1)) |req| ipc.writeResponse(pdns.I2s.command.SetEnabled1, blk: {
+                            var i2s = pdn.clock.i2s;
                             i2s.i2s1 = req;
-                            pdn_registers.clock.i2s = i2s;
+                            pdn.clock.i2s = i2s;
                             break :blk .of(.success, {});
                         }),
-                        .set_enabled_2 => if (ipc.readRequest(pdn.I2s.command.SetEnabled2)) |req| ipc.writeResponse(pdn.I2s.command.SetEnabled2, blk: {
-                            var i2s = pdn_registers.clock.i2s;
+                        .set_enabled_2 => if (ipc.readRequest(pdns.I2s.command.SetEnabled2)) |req| ipc.writeResponse(pdns.I2s.command.SetEnabled2, blk: {
+                            var i2s = pdn.clock.i2s;
                             i2s.i2s2 = req;
-                            pdn_registers.clock.i2s = i2s;
+                            pdn.clock.i2s = i2s;
                             break :blk .of(.success, {});
                         }),
                     },
-                    2 => if (ipc.readRequestId(pdn.Gpu.command.Id)) |id| switch (id) {
-                        .control => if (ipc.readRequest(pdn.Gpu.command.Control)) |req| ipc.writeResponse(pdn.Gpu.command.Control, blk: {
+                    2 => if (ipc.readRequestId(pdns.Gpu.command.Id)) |id| switch (id) {
+                        .control => if (ipc.readRequest(pdns.Gpu.command.Control)) |req| ipc.writeResponse(pdns.Gpu.command.Control, blk: {
                             if ((req.reset or req.reset_registers) and !req.enable) break :blk .of(.pdn_invalid_arg, {});
 
                             var gpu: hardware.pdn.Clock.Gpu = .{
@@ -131,7 +132,7 @@ pub fn main() void {
                                 .enable = req.enable,
                             };
 
-                            pdn_registers.clock.gpu = gpu;
+                            pdn.clock.gpu = gpu;
 
                             if (req.reset or req.reset_registers) {
                                 spin(12);
@@ -146,14 +147,14 @@ pub fn main() void {
                                     .enable = req.enable,
                                 };
 
-                                pdn_registers.clock.gpu = gpu;
+                                pdn.clock.gpu = gpu;
                             }
 
                             break :blk .of(.success, {});
                         }),
                     },
-                    3 => if (ipc.readRequestId(pdn.Dsp.command.Id)) |id| switch (id) {
-                        .control => if (ipc.readRequest(pdn.Dsp.command.Control)) |req| ipc.writeResponse(pdn.Dsp.command.Control, blk: {
+                    3 => if (ipc.readRequestId(pdns.Dsp.command.Id)) |id| switch (id) {
+                        .control => if (ipc.readRequest(pdns.Dsp.command.Control)) |req| ipc.writeResponse(pdns.Dsp.command.Control, blk: {
                             if (req.reset_registers and !req.enable) break :blk .of(.pdn_invalid_arg, {});
 
                             var dsp: hardware.pdn.Clock.Dsp = .{
@@ -161,26 +162,26 @@ pub fn main() void {
                                 .reset = .reset(req.reset),
                             };
 
-                            pdn_registers.clock.dsp = dsp;
+                            pdn.clock.dsp = dsp;
                             if (req.reset and req.reset_registers) {
                                 spin(48);
 
                                 dsp = .{ .reset = .enabled, .enable = req.enable };
-                                pdn_registers.clock.dsp = dsp;
+                                pdn.clock.dsp = dsp;
                             }
 
                             break :blk .of(.success, {});
                         }),
                     },
-                    4 => if (ipc.readRequestId(pdn.Camera.command.Id)) |id| switch (id) {
-                        .set_enabled => if (ipc.readRequest(pdn.Camera.command.SetEnabled)) |req| ipc.writeResponse(pdn.Camera.command.SetEnabled, blk: {
+                    4 => if (ipc.readRequestId(pdns.Camera.command.Id)) |id| switch (id) {
+                        .set_enabled => if (ipc.readRequest(pdns.Camera.command.SetEnabled)) |req| ipc.writeResponse(pdns.Camera.command.SetEnabled, blk: {
                             const camera: hardware.pdn.Clock.Enable = .{ .enable = req };
-                            pdn_registers.clock.camera = camera;
+                            pdn.clock.camera = camera;
                             break :blk .of(.success, {});
                         }),
-                        .is_enabled => if (ipc.readRequest(pdn.Camera.command.IsEnabled)) |_| ipc.writeResponse(pdn.Camera.command.IsEnabled, .of(
+                        .is_enabled => if (ipc.readRequest(pdns.Camera.command.IsEnabled)) |_| ipc.writeResponse(pdns.Camera.command.IsEnabled, .of(
                             .success,
-                            pdn_registers.clock.camera.enable,
+                            pdn.clock.camera.enable,
                         )),
                     },
                     else => unreachable,
@@ -220,5 +221,5 @@ const Port = horizon.Port;
 const Session = horizon.Session;
 const Code = horizon.result.Code;
 
-const pdn = horizon.services.pdn;
-const pdn_registers = horizon.memory.pdn_registers;
+const pdns = horizon.services.pdn;
+const pdn = horizon.memory.pdn;
